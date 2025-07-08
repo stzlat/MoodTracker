@@ -9,6 +9,7 @@ struct AnalyticsView: View {
     @State private var selectedTimeRange: TimeRange = .weekly
     @State private var smoothTrendLine: Bool = false
     @Environment(\.colorScheme) var colorScheme
+    @EnvironmentObject var authViewModel: AuthViewModel
     @AppStorage("selectedTheme") private var selectedTheme = "Default"
     
     enum AnalyticsViewType: String, CaseIterable {
@@ -99,47 +100,22 @@ struct AnalyticsView: View {
     }
     
     func loadMoodEntries() {
-        if let data = UserDefaults.standard.data(forKey: "moodEntries"),
-           let decoded = try? JSONDecoder().decode([MoodEntry].self, from: data) {
-            entries = decoded.sorted { $0.date > $1.date }
+            guard let userID = authViewModel.userSession?.uid else {
+                print("DEBUG: Cannot load analytics, user not logged in.")
+                return
+            }
+            
+            Task {
+                do {
+                    self.entries = try await DatabaseService.shared.fetchMoodEntries(forUserID: userID)
+                } catch {
+                    print("DEBUG: Failed to load analytics from Firestore: \(error)")
+                }
         }
     }
 }
 
-// MARK: - Mood Color Helper
-extension Color {
-    static func moodColor(for mood: String, opacity: Double = 0.7) -> Color {
-        switch mood {
-        case "Happy": return .green.opacity(opacity)
-        case "Calm": return .blue.opacity(opacity)
-        case "Neutral": return Color(.systemGray).opacity(opacity)
-        case "Sad": return Color(.systemBlue).opacity(opacity + 0.1)
-        case "Stressed": return .orange.opacity(opacity)
-        case "Angry": return .red.opacity(opacity)
-        case "Tired": return .purple.opacity(opacity - 0.1)
-        case "Sick": return .brown.opacity(opacity - 0.1)
-        default: return Color(.systemGray3).opacity(opacity)
-        }
-    }
-    
-    static func chartMoodColor(for mood: String) -> Color {
-        switch mood {
-        case "Happy": return .green
-        case "Calm": return .blue
-        case "Neutral": return Color(.systemGray)
-        case "Sad": return Color(.systemBlue)
-        case "Stressed": return .orange
-        case "Angry": return .red
-        case "Tired": return .purple
-        case "Sick": return .brown
-        default: return Color(.systemGray)
-        }
-    }
-    
-    static var adaptiveGreenBackground: Color {
-        return Color.green.opacity(0.1)
-    }
-}
+
 
 // Calendar View Component
 struct MoodCalendarView: View {

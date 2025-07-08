@@ -1,21 +1,38 @@
 //  File: MoodTrackerApp.swift
 //
 
-// Import the SwiftUI framework which provides tools for building user interfaces
 import SwiftUI
+import FirebaseCore // Import FirebaseCore
 
-// The @main attribute identifies this as the entry point of the application
+// Add AppDelegate to configure Firebase
+class AppDelegate: NSObject, UIApplicationDelegate {
+  func application(_ application: UIApplication,
+                   didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+    FirebaseApp.configure()
+    return true
+  }
+}
+
 @main
-// Define the main app structure that conforms to the App protocol
 struct MoodTrackerApp: App {
-    // The body property is required by the App protocol and returns the app's content
+    // register app delegate for Firebase setup
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    
+    // Create an instance of the AuthViewModel and keep it alive for the app's lifecycle
+    @StateObject private var authViewModel = AuthViewModel()
+    
     var body: some Scene {
-        // WindowGroup represents the app's window(s) on macOS and the main screen on iOS
         WindowGroup {
-            // ContentView is the root view of your application
-            ContentView()
-                // On macOS, you might add window configuration here
-                // On iOS, this will fill the entire screen
+            // Check if a user session exists
+            if authViewModel.userSession != nil {
+                // If logged in, show the main content view
+                ContentView()
+                    .environmentObject(authViewModel) // Pass the view model to all child views
+            } else {
+                // If not logged in, show the login view
+                LoginView()
+                    .environmentObject(authViewModel) // Also pass it here for login/signup actions
+            }
         }
     }
 }

@@ -2,18 +2,27 @@
 import SwiftUI
 
 struct SettingsView: View {
+    // MARK: - Properties
+    // Device-specific settings can remain in AppStorage
     @AppStorage("dailyReminderEnabled") private var dailyReminderEnabled = false
     @AppStorage("reminderTime") private var reminderTimeData = Data()
     @AppStorage("selectedTheme") private var selectedTheme = "Default"
     
+    // EnvironmentObject to get the current user's session
+    @EnvironmentObject var authViewModel: AuthViewModel
+    
+    // State for UI updates
     @State private var reminderTime = Date()
     @State private var showingDataAlert = false
     @State private var showingExportSheet = false
     @State private var showingContactSheet = false
     @State private var showingHelpSheet = false
-    
+    @State private var totalEntries = 0 // State for the total entries count
+    @State private var showingSignOutAlert = false
+
     let themes = ["Green", "Dark"]
     
+    // MARK: - Body
     var body: some View {
         NavigationView {
             ZStack {
@@ -22,6 +31,21 @@ struct SettingsView: View {
                     .ignoresSafeArea(.all)
                 
                 List {
+                    // Account Section
+                        Section("Account") {
+                            HStack {
+                                Text("Logged In As")
+                                Spacer()
+                                Text(authViewModel.userSession?.email ?? "N/A")
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                            }
+                            
+                            Button("Sign Out", role: .destructive) {
+                                showingSignOutAlert = true
+                            }
+                        }
+                    
                     // Notifications Section
                     Section("Notifications") {
                         Toggle("Daily Reminder", isOn: $dailyReminderEnabled)
@@ -44,9 +68,6 @@ struct SettingsView: View {
                             }
                         }
                         .pickerStyle(SegmentedPickerStyle())
-                        .onChange(of: selectedTheme) { _, newTheme in
-                            applyTheme(newTheme)
-                        }
                     }
                     
                     // Data Management Section
@@ -54,6 +75,7 @@ struct SettingsView: View {
                         HStack {
                             Image(systemName: "square.and.arrow.up")
                                 .foregroundColor(.blue)
+                            // Pass the logged-in user's entries to the Export view
                             Button("Export Data") {
                                 showingExportSheet = true
                             }
@@ -83,13 +105,15 @@ struct SettingsView: View {
                         HStack {
                             Text("Total Entries")
                             Spacer()
-                            Text("\(getTotalEntries())")
+                            // Display the count from our state variable
+                            Text("\(totalEntries)")
                                 .foregroundColor(.secondary)
                         }
                     }
                     
                     // Support Section
                     Section("Support") {
+                        // ... (This section remains unchanged) ...
                         Button(action: { showingHelpSheet = true }) {
                             HStack {
                                 Image(systemName: "questionmark.circle")
@@ -116,13 +140,29 @@ struct SettingsView: View {
                             }
                         }
                     }
+                    
+
+                    // NEW: Account Section
+                    Section {
+                        Button(role: .destructive, action: {
+                            authViewModel.signOut()
+                        }) {
+                            HStack {
+                                Spacer()
+                                Text("Sign Out")
+                                Spacer()
+                            }
+                        }
+                    }
                 }
-                .scrollContentBackground(.hidden) // Hide the default list background
-                .background(Color.clear) // Make list background transparent
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
             }
             .navigationTitle("Settings")
             .onAppear {
+                // When the view appears, load settings and fetch the latest entry count
                 loadReminderTime()
+                fetchTotalEntries()
             }
             .alert("Clear All Data", isPresented: $showingDataAlert) {
                 Button("Cancel", role: .cancel) { }
@@ -130,10 +170,13 @@ struct SettingsView: View {
                     clearAllData()
                 }
             } message: {
-                Text("This will permanently delete all your mood entries. This action cannot be undone.")
+                Text("This will permanently delete all your mood entries from your account. This action cannot be undone.")
             }
             .sheet(isPresented: $showingExportSheet) {
-                ExportDataView()
+                // Pass the current user's ID to the export view
+                if let userId = authViewModel.userSession?.uid {
+                    ExportDataView(userID: userId)
+                }
             }
             .sheet(isPresented: $showingHelpSheet) {
                 HelpView()
@@ -141,22 +184,22 @@ struct SettingsView: View {
             .sheet(isPresented: $showingContactSheet) {
                 ContactSupportView()
             }
+            // .alert
+            .alert("Confirm Sign Out", isPresented: $showingSignOutAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Sign Out", role: .destructive) {
+                    authViewModel.signOut()
+                }
+            } message: {
+                Text("Are you sure you want to sign out? You will be returned to the login screen.")
+            }
             .preferredColorScheme(getColorScheme())
         }
     }
     
-    private func applyTheme(_ theme: String) {
-        // The theme will be applied through preferredColorScheme modifier
-        // which is reactive to the selectedTheme AppStorage value
-    }
-    
+    // MARK: - Functions
     private func getColorScheme() -> ColorScheme? {
-        switch selectedTheme {
-        case "Dark":
-            return .dark
-        default:
-            return nil // For Default/Green theme
-        }
+        selectedTheme == "Dark" ? .dark : nil
     }
     
     private func getBackgroundColor() -> Color {
@@ -164,7 +207,8 @@ struct SettingsView: View {
         case "Dark":
             return Color.black
         default:
-            return Color.adaptiveGreenBackground // Default green background
+            // Assuming Color.adaptiveGreenBackground is defined elsewhere, e.g., in an extension
+            return Color.green.opacity(0.1)
         }
     }
     
@@ -178,28 +222,38 @@ struct SettingsView: View {
         if let decoded = try? JSONDecoder().decode(Date.self, from: reminderTimeData) {
             reminderTime = decoded
         } else {
-            // Default to 8:00 PM
             let calendar = Calendar.current
             let components = DateComponents(hour: 20, minute: 0)
             reminderTime = calendar.date(from: components) ?? Date()
         }
     }
     
-    private func getTotalEntries() -> Int {
-        if let data = UserDefaults.standard.data(forKey: "moodEntries"),
-           let entries = try? JSONDecoder().decode([MoodEntry].self, from: data) {
-            return entries.count
+    // REVISED: Fetches total entries from Firestore
+    private func fetchTotalEntries() {
+        guard let userID = authViewModel.userSession?.uid else { return }
+        Task {
+            self.totalEntries = await DatabaseService.shared.getTotalEntriesCount(forUserID: userID)
         }
-        return 0
     }
     
+    // REVISED: Clears all data from Firestore for the current user
     private func clearAllData() {
-        UserDefaults.standard.removeObject(forKey: "moodEntries")
+        guard let userID = authViewModel.userSession?.uid else { return }
+        Task {
+            await DatabaseService.shared.clearAllData(forUserID: userID)
+            // Refresh the count after clearing
+            fetchTotalEntries()
+        }
     }
 }
 
+// MARK: - Helper Views (Help, Contact, etc.)
+// These views do not need changes unless they also handle user-specific data.
+// We only need to modify ExportDataView.
+
 // Help & FAQ Sheet
 struct HelpView: View {
+    // ... (This view's code remains unchanged) ...
     @Environment(\.presentationMode) var presentationMode
     
     let faqItems = [
@@ -215,7 +269,6 @@ struct HelpView: View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    // Header
                     VStack(alignment: .leading, spacing: 8) {
                         Image(systemName: "questionmark.circle.fill")
                             .font(.system(size: 40))
@@ -231,7 +284,6 @@ struct HelpView: View {
                     }
                     .padding(.bottom)
                     
-                    // FAQ Items
                     ForEach(faqItems, id: \.0) { question, answer in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(question)
@@ -258,9 +310,11 @@ struct HelpView: View {
     }
 }
 
+
 // Contact Support Sheet
 struct ContactSupportView: View {
-    @Environment(\.presentationMode) var presentationMode
+    // ... (This view's code remains unchanged) ...
+     @Environment(\.presentationMode) var presentationMode
     @State private var message = ""
     @State private var email = ""
     @State private var selectedCategory = "General"
@@ -272,7 +326,6 @@ struct ContactSupportView: View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    // Header
                     VStack(alignment: .leading, spacing: 8) {
                         Image(systemName: "envelope.fill")
                             .font(.system(size: 40))
@@ -288,9 +341,7 @@ struct ContactSupportView: View {
                     }
                     .padding(.bottom)
                     
-                    // Contact Form
                     VStack(alignment: .leading, spacing: 16) {
-                        // Email Field
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Email Address")
                                 .font(.headline)
@@ -300,7 +351,6 @@ struct ContactSupportView: View {
                                 .disableAutocorrection(true)
                         }
                         
-                        // Category Picker
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Category")
                                 .font(.headline)
@@ -313,7 +363,6 @@ struct ContactSupportView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         
-                        // Message Field
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Message")
                                 .font(.headline)
@@ -324,7 +373,6 @@ struct ContactSupportView: View {
                                 .cornerRadius(8)
                         }
                         
-                        // Send Button
                         Button(action: sendMessage) {
                             HStack {
                                 Image(systemName: "paperplane.fill")
@@ -358,15 +406,15 @@ struct ContactSupportView: View {
     }
     
     private func sendMessage() {
-        // In a real app, you would send this to your support system
-        // For now, we'll just show a thank you message
         showingThankYou = true
     }
 }
 
-// Export Data Sheet
+// REVISED: Export Data Sheet to fetch data from Firestore
 struct ExportDataView: View {
     @Environment(\.presentationMode) var presentationMode
+    let userID: String // Expect a userID to be passed in
+    
     @State private var isExporting = false
     @State private var showingShareSheet = false
     @State private var exportedFileURL: URL?
@@ -388,50 +436,35 @@ struct ExportDataView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
                 
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Image(systemName: "doc.text")
-                            .foregroundColor(.blue)
-                        VStack(alignment: .leading) {
-                            Text("CSV Format")
-                                .font(.headline)
-                            Text("Spreadsheet compatible format")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                    }
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(12)
-                }
-                
                 Spacer()
                 
-                VStack(spacing: 12) {
-                    Button(action: exportData) {
-                        HStack {
-                            if isExporting {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                            } else {
-                                Image(systemName: "square.and.arrow.up")
-                            }
-                            Text(isExporting ? "Exporting..." : "Export Data")
+                Button(action: {
+                    Task {
+                        await exportData()
+                    }
+                }) {
+                    HStack {
+                        if isExporting {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "square.and.arrow.up")
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
+                        Text(isExporting ? "Exporting..." : "Export Data")
                     }
-                    .disabled(isExporting)
-                    
-                    Button("Cancel") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
                 }
+                .disabled(isExporting)
+                
+                Button("Cancel") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+                .foregroundColor(.secondary)
+                .padding(.top, 8)
             }
             .padding()
             .navigationTitle("Export Data")
@@ -446,47 +479,44 @@ struct ExportDataView: View {
         }
     }
     
-    private func exportData() {
+    private func exportData() async {
         isExporting = true
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            // Create CSV data
-            let csvData = createCSVData()
+        do {
+            // Create CSV data by fetching from Firestore
+            let csvData = try await createCSVData()
             
             // Create temporary file
             let tempURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent("mood_data_\(Date().timeIntervalSince1970).csv")
             
-            do {
-                try csvData.write(to: tempURL, atomically: true, encoding: .utf8)
-                self.exportedFileURL = tempURL
-                self.isExporting = false
-                self.showingShareSheet = true
-            } catch {
-                print("Error writing CSV file: \(error)")
-                self.isExporting = false
-            }
+            try csvData.write(to: tempURL, atomically: true, encoding: .utf8)
+            self.exportedFileURL = tempURL
+            self.isExporting = false
+            self.showingShareSheet = true
+        } catch {
+            print("Error writing CSV file: \(error)")
+            self.isExporting = false
         }
     }
     
-    private func createCSVData() -> String {
+    // REVISED: createCSVData is now async and fetches from Firestore
+    private func createCSVData() async throws -> String {
         var csvString = "Date,Main Mood,Sub Mood,Notes\n"
         
-        // Get mood entries from UserDefaults
-        if let data = UserDefaults.standard.data(forKey: "moodEntries"),
-           let entries = try? JSONDecoder().decode([MoodEntry].self, from: data) {
+        // Get mood entries from Firestore for the current user
+        let entries = try await DatabaseService.shared.fetchMoodEntries(forUserID: userID)
             
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateStyle = .medium
-            dateFormatter.timeStyle = .short
-            
-            for entry in entries {
-                let dateString = dateFormatter.string(from: entry.date)
-                let mainMood = entry.mainMood
-                let subMood = entry.subMood ?? ""
-                let notes = entry.notes?.replacingOccurrences(of: "\"", with: "\"\"") ?? ""
-                csvString += "\"\(dateString)\",\"\(mainMood)\",\"\(subMood)\",\"\(notes)\"\n"
-            }
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium
+        dateFormatter.timeStyle = .short
+        
+        for entry in entries {
+            let dateString = dateFormatter.string(from: entry.date)
+            let mainMood = entry.mainMood
+            let subMood = entry.subMood ?? ""
+            let notes = entry.notes?.replacingOccurrences(of: "\"", with: "\"\"") ?? ""
+            csvString += "\"\(dateString)\",\"\(mainMood)\",\"\(subMood)\",\"\(notes)\"\n"
         }
         
         return csvString
@@ -509,5 +539,6 @@ struct ShareSheet: UIViewControllerRepresentable {
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
         SettingsView()
+            .environmentObject(AuthViewModel()) // Add a dummy AuthViewModel for preview
     }
 }

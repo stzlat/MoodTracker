@@ -3,21 +3,22 @@ import SwiftUI
 
 // View for logging a mood entry
 struct MoodEntryView: View {
-    // Environment property to dismiss the view
+    // MARK: - Properties
     @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var authViewModel: AuthViewModel
     
     // Get the current theme from AppStorage
     @AppStorage("selectedTheme") private var selectedTheme = "Green"
     
     // State variables to track user selections
-    @State private var isCurrentMood = true  // Tracks if logging current or past mood
-    @State private var selectedDate = Date() // For date selection
-    @State private var selectedTime = Date() // For time selection
-    @State private var selectedMood: String = "Happy" // Default mood selection
-    @State private var selectedSubMood: String = ""   // Sub-mood selection
-    @State private var notes: String = ""             // User notes
+    @State private var isCurrentMood = true
+    @State private var selectedDate = Date()
+    @State private var selectedTime = Date()
+    @State private var selectedMood: String = "Happy"
+    @State private var selectedSubMood: String = ""
+    @State private var notes: String = ""
     
-    // Dictionary of available moods with emojis and sub-moods
+    // Dictionary of available moods
     let moods: [String: (emoji: String, subMoods: [String])] = [
         "Happy": ("😊", ["Joyful", "Grateful", "Content", "Excited", "Hopeful"]),
         "Calm": ("😌", ["Relaxed", "At ease", "Meditation"]),
@@ -30,13 +31,15 @@ struct MoodEntryView: View {
         "Unknown": ("❓", ["The feelings can't be named"])
     ]
 
+    // MARK: - Body
     var body: some View {
         NavigationView {
             ZStack {
-                // Background color that fills the entire screen
+                // 1. 设置背景颜色
                 getBackgroundColor()
                     .ignoresSafeArea(.all)
                 
+                // 2. 表单内容
                 Form {
                     // Section for current/previous mood toggle
                     Section(header: Text("Is this your current mood?")) {
@@ -44,7 +47,7 @@ struct MoodEntryView: View {
                             Text("Current").tag(true)
                             Text("Previous").tag(false)
                         }
-                        .pickerStyle(SegmentedPickerStyle())  // Shows as segmented control
+                        .pickerStyle(SegmentedPickerStyle())
                     }
                     
                     // Show date/time pickers only for previous moods
@@ -59,7 +62,6 @@ struct MoodEntryView: View {
                     
                     // Mood selection section
                     Section(header: Text("Select Your Mood")) {
-                        // Main mood picker
                         Picker("Main Mood", selection: $selectedMood) {
                             ForEach(moods.keys.sorted(), id: \.self) { mood in
                                 Text("\(moods[mood]?.emoji ?? "") \(mood)")
@@ -67,10 +69,9 @@ struct MoodEntryView: View {
                             }
                         }
                         
-                        // Show sub-mood picker only if the selected mood has sub-moods
                         if let subMoods = moods[selectedMood]?.subMoods, !subMoods.isEmpty {
                             Picker("Optional Detail", selection: $selectedSubMood) {
-                                Text("None").tag("")  // Optional "none" selection
+                                Text("None").tag("")
                                 ForEach(subMoods, id: \.self) { subMood in
                                     Text(subMood).tag(subMood)
                                 }
@@ -81,82 +82,77 @@ struct MoodEntryView: View {
                     // Notes section
                     Section(header: Text("Add Notes (Optional)")) {
                         TextEditor(text: $notes)
-                            .frame(height: 100)  // Fixed height text editor
+                            .frame(height: 100)
                     }
                 }
-                .scrollContentBackground(.hidden) // Hide the default form background
-                .background(Color.clear) // Make form background transparent
+                .scrollContentBackground(.hidden) // 隐藏默认的表单背景
+                .background(Color.clear) // 使表单背景透明，以显示我们的ZStack背景
             }
-            .navigationTitle("Log Mood")  // View title
+            .navigationTitle("Log Mood")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // Save button in top-right
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        saveMoodEntry()  // Save the entry
-                        dismiss()        // Close the view
+                        saveMoodEntry()
+                        dismiss()
                     }
                 }
                 
-                // Cancel button in top-left
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
-                        dismiss()  // Just close without saving
+                        dismiss()
                     }
                 }
             }
+            // ✅✅✅ 关键修复：强制这个NavigationView及其所有子视图遵循我们选择的主题 ✅✅✅
             .preferredColorScheme(getColorScheme())
         }
     }
     
-    // Theme-related functions
+    // MARK: - Functions
+    
+    // ✅ 关键辅助函数1：根据主题选择，返回对应的颜色模式
     private func getColorScheme() -> ColorScheme? {
         switch selectedTheme {
         case "Dark":
-            return .dark
+            return .dark // 深色模式
         default:
-            return nil // For Green theme, use system default
+            return nil // 其他主题（如Green）使用系统默认模式
         }
     }
     
+    // ✅ 关键辅助函数2：根据主题选择，返回对应的背景色
     private func getBackgroundColor() -> Color {
         switch selectedTheme {
         case "Dark":
-            return Color.black
+            return Color.black // 深色主题用纯黑背景
         default:
-            return Color.adaptiveGreenBackground // Green background for default theme
+            return Color.adaptiveGreenBackground // 默认和绿色主题用我们自定义的绿色背景
         }
     }
     
-    // Saves the current mood entry to UserDefaults
+    // Saves the current mood entry to Firestore
     func saveMoodEntry() {
-        // Create a new mood entry with current selections
+        guard let userID = authViewModel.userSession?.uid else {
+            print("DEBUG: Cannot save mood. User not logged in.")
+            return
+        }
+        
         let entry = MoodEntry(
+            userID: userID,
             date: isCurrentMood ? Date() : combineDateTime(date: selectedDate, time: selectedTime),
             mainMood: selectedMood,
             subMood: selectedSubMood.isEmpty ? nil : selectedSubMood,
-            notes: notes.isEmpty ? nil : notes
+notes: notes.isEmpty ? nil : notes
         )
         
-        // Load existing entries, append new one, and save back
-        var savedEntries = loadMoodEntries()
-        savedEntries.append(entry)
-        
-        // Encode and save to UserDefaults
-        if let data = try? JSONEncoder().encode(savedEntries) {
-            UserDefaults.standard.set(data, forKey: "moodEntries")
+        Task {
+            do {
+                try await DatabaseService.shared.saveMoodEntry(entry, forUserID: userID)
+            } catch {
+                print("DEBUG: Failed to save mood to Firestore: \(error)")
+            }
         }
-
-        //print("Mood saved: \(entry)")  // Debug print
-    }
-    
-    // FIXED: Loads saved mood entries from UserDefaults
-    func loadMoodEntries() -> [MoodEntry] {
-        if let data = UserDefaults.standard.data(forKey: "moodEntries"),
-           let decoded = try? JSONDecoder().decode([MoodEntry].self, from: data) {
-            return decoded
-        }
-        return []  // Return empty array if none exist
     }
     
     // Combines separate date and time into a single Date object
@@ -172,6 +168,7 @@ struct MoodEntryView: View {
             hour: timeComponents.hour,
             minute: timeComponents.minute,
             second: timeComponents.second
-        )) ?? Date()  // Fallback to current date if combination fails
+        )) ?? Date()
     }
 }
+
