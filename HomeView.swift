@@ -76,6 +76,7 @@ struct HomeView: View {
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
                                 .background(adaptiveGreenBackground)
+
                                 .cornerRadius(8)
                             }
                         }
@@ -83,7 +84,12 @@ struct HomeView: View {
                     }
                 }
                 .padding()
-                .background(Color.gray.opacity(0.1))
+                //.background(Color.gray.opacity(0.1))
+                .background(
+                    selectedTheme == "Dark" ? Color.black :
+                    selectedTheme == "Green" ? Color.adaptiveGreenBackground :
+                    Color(.systemBackground)
+                )
                 .cornerRadius(10)
                 .padding(.horizontal)
 

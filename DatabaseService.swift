@@ -37,23 +37,20 @@ class DatabaseService {
             .order(by: "date", descending: true)
             .getDocuments()
             
-        // --- 从这里开始修改 ---
 
         var decodedEntries: [MoodEntry] = []
         print("DEBUG: Found \(snapshot.documents.count) documents for user. Attempting to decode...")
 
         for document in snapshot.documents {
             do {
-                // 尝试将文档解码为 MoodEntry
                 var entry = try document.data(as: MoodEntry.self)
                 entry.firestoreID = document.documentID
                 decodedEntries.append(entry)
                 print("  ✅ Successfully decoded document: \(document.documentID)")
             } catch {
-                // 如果解码失败，打印详细的错误信息
                 print("  ❌ DECODING FAILED for document: \(document.documentID)")
-                print("     Error: \(error)") // 这行会告诉我们具体是哪个字段出了问题
-                print("     Document data: \(document.data())") // 这行会打印出原始数据供对比
+                print("     Error: \(error)")
+                print("     Document data: \(document.data())")
                 print("---------------------------------")
             }
         }
@@ -61,7 +58,6 @@ class DatabaseService {
         print("DEBUG: Finished decoding. Total successful entries: \(decodedEntries.count)")
         return decodedEntries
         
-        // --- 修改到这里结束 ---
     }
     
     // Get total entry count for a user
@@ -93,6 +89,5 @@ class DatabaseService {
 //  DatabaseService.swift
 //  MoodTracker
 //
-//  Created by 吴青峰的老婆 on 2025/7/7.
 //
 

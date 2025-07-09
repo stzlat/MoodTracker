@@ -44,6 +44,5 @@ extension Color {
 //  Color+Extensions.swift
 //  MoodTracker
 //
-//  Created by 吴青峰的老婆 on 2025/7/7.
 //
 

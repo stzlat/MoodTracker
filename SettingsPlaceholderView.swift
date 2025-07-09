@@ -141,19 +141,6 @@ struct SettingsView: View {
                         }
                     }
                     
-
-                    // NEW: Account Section
-                    Section {
-                        Button(role: .destructive, action: {
-                            authViewModel.signOut()
-                        }) {
-                            HStack {
-                                Spacer()
-                                Text("Sign Out")
-                                Spacer()
-                            }
-                        }
-                    }
                 }
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)

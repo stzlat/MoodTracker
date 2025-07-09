@@ -68,6 +68,5 @@ struct RegistrationView: View {
 //  RegistrationView.swift
 //  MoodTracker
 //
-//  Created by 吴青峰的老婆 on 2025/7/7.
 //
 

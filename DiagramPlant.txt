@@ -1,0 +1,420 @@
+CLASS DIAGRAM 
+
+
+@startuml
+' === Straight arrows ===
+skinparam linetype ortho
+
+' === Transparent class boxes ===
+skinparam class {
+  BackgroundColor transparent
+  BorderColor black
+}
+
+' === Remove class stereotype (C) ===
+skinparam classAttributeIconSize 0
+hide circle
+
+class MoodEntry {
+  - firestoreID: String?
+  - userID: String?
+  - date: Date
+  - mainMood: String
+  - subMood: String?
+  - notes: String?
+}
+
+class AuthViewModel {
+  - userSession: User?
+  - currentUser: User?
+  - cancellables: Set<AnyCancellable>
+  + signIn(email, password): Bool
+  + signUp(email, password): Bool
+  + signOut(): Void
+}
+
+class DatabaseService {
+  - db: Firestore
+  - moodEntriesCollection: CollectionReference
+  + saveMoodEntry(entry, userID): Void
+  + fetchMoodEntries(userID): [MoodEntry]
+  + getTotalEntriesCount(userID): Int
+  + clearAllData(userID): Void
+}
+
+class MoodTrackerApp {
+  - delegate: AppDelegate
+  - authViewModel: AuthViewModel
+  + body: Scene
+}
+
+class ContentView {
+  + body: View
+}
+
+class HomeView {
+  - showMoodSheet: Bool
+  - moodEntries: [MoodEntry]
+  + body: View
+  + loadMoodEntries(): Void
+  + getMoodEmoji(for): String
+  + formatDate(date): String
+  + formatTime(date): String
+}
+
+class MoodEntryView {
+  - selectedMood: String
+  - subMood: String
+  - notes: String
+  + saveMoodEntry(): Void
+}
+
+class AnalyticsView {
+  - entries: [MoodEntry]
+  - selectedView: AnalyticsViewType
+  - selectedTimeRange: TimeRange
+  - smoothTrendLine: Bool
+  + body: View
+  + loadMoodEntries(): Void
+  + getBackgroundColor(): Color
+}
+
+class SettingsView {
+  - dailyReminderEnabled: Bool
+  - reminderTimeData: Data
+  - selectedTheme: String
+  - reminderTime: Date
+  - totalEntries: Int
+  + body: View
+  + saveReminderTime(date): Void
+  + loadReminderTime(): Date
+  + fetchTotalEntries(): Int
+  + clearAllData(): Void
+}
+
+class ExportDataView
+class HelpView
+class ContactSupportView
+
+class ColorExtensions {
+  + moodColor(mood, opacity): Color
+  + chartMoodColor(mood): Color
+  + adaptiveGreenBackground: Color
+}
+
+class FirebaseFirestore
+class FirebaseAuth
+
+' === Relationships ===
+MoodTrackerApp --> AuthViewModel
+MoodTrackerApp --> ContentView
+ContentView --> HomeView
+ContentView --> AnalyticsView
+ContentView --> SettingsView
+HomeView --> MoodEntryView
+HomeView --> AuthViewModel
+HomeView --> DatabaseService
+HomeView --> MoodEntry
+MoodEntryView --> AuthViewModel
+MoodEntryView --> DatabaseService
+MoodEntryView --> MoodEntry
+AnalyticsView --> AuthViewModel
+AnalyticsView --> DatabaseService
+AnalyticsView --> MoodEntry
+SettingsView --> AuthViewModel
+SettingsView --> DatabaseService
+SettingsView --> ExportDataView
+SettingsView --> HelpView
+SettingsView --> ContactSupportView
+DatabaseService --> FirebaseFirestore
+DatabaseService --> MoodEntry
+AuthViewModel --> FirebaseAuth
+ColorExtensions ..> HomeView
+ColorExtensions ..> AnalyticsView
+ColorExtensions ..> SettingsView
+
+@enduml
+
+
+=============================================
+
+
+SEQUENCE DIAGRAM
+
+@startuml MoodLoggingSequenceDiagram
+
+actor User
+participant HomeView
+participant MoodEntryView
+participant AuthViewModel
+participant MoodEntry <<Entity>>
+participant DatabaseService
+participant FirebaseFirestore <<Database>>
+
+== Mood Logging Process ==
+
+User -> HomeView: Taps "How are you feeling today?"
+activate HomeView
+HomeView -> MoodEntryView: Present Sheet (showMoodSheet=true)
+activate MoodEntryView
+
+User -> MoodEntryView: Selects mood, enters notes
+User -> MoodEntryView: Taps "Save" button
+
+MoodEntryView -> AuthViewModel: get userSession?.uid
+activate AuthViewModel
+AuthViewModel --> MoodEntryView: Returns userID
+deactivate AuthViewModel
+
+MoodEntryView -> MoodEntry: Create new MoodEntry\n(date, mood, notes, userID)
+activate MoodEntry
+
+MoodEntryView -> DatabaseService: saveMoodEntry(entry, userID)
+activate DatabaseService
+DatabaseService -> FirebaseFirestore: setData(from: entryWithUserID)
+activate FirebaseFirestore
+FirebaseFirestore --> DatabaseService: Save acknowledged
+deactivate FirebaseFirestore
+DatabaseService --> MoodEntryView: Save confirmed
+deactivate DatabaseService
+
+MoodEntryView -> MoodEntryView: dismiss()
+deactivate MoodEntryView
+deactivate MoodEntry
+
+HomeView <-- MoodEntryView: Sheet dismissed
+HomeView -> HomeView: Trigger loadMoodEntries()
+
+HomeView -> DatabaseService: fetchMoodEntries(userID)
+activate DatabaseService
+DatabaseService -> FirebaseFirestore: getDocuments\n(where userID matches,\nordered by date)
+activate FirebaseFirestore
+FirebaseFirestore --> DatabaseService: Returns mood entries
+deactivate FirebaseFirestore
+DatabaseService --> HomeView: Returns [MoodEntry]
+deactivate DatabaseService
+
+HomeView --> User: Displays updated "Recent Moods" list
+deactivate HomeView
+
+@enduml
+
+
+====================================
+
+
+MAIN BASED CLASS
+
+@startuml MoodTracker_CoreModels
+class MoodEntry {
+  + firestoreID: String
+  + userID: String
+  + date: Date
+  + mainMood: String
+  + subMood: String
+  + notes: String
+  + id: String
+}
+
+class User {
+  + uid: String
+  + email: String
+}
+
+class AuthViewModel {
+  + userSession: User
+  + currentUser: User
+  + signIn()
+  + signUp()
+  + signOut()
+}
+
+class DatabaseService {
+  + shared: DatabaseService
+  - db: Firestore
+  + saveMoodEntry()
+  + fetchMoodEntries()
+  + clearAllData()
+}
+
+MoodEntry "1" --> "1" User : belongs to
+AuthViewModel "1" --> "1" DatabaseService : uses
+AuthViewModel "1" --> "1" User : manages
+@enduml
+
+
+
+========================================================
+
+DETAIL CLASS DIAGRAM 
+
+@startuml MoodTracker_CompleteClassDiagram
+
+' 1. Core Models
+class MoodEntry {
+  + firestoreID: String
+  + userID: String
+  + date: Date
+  + mainMood: String
+  + subMood: String
+  + notes: String
+  + id: String {readonly}
+  --
+  + init(userID:date:mainMood:subMood:notes:)
+}
+
+class User {
+  + uid: String
+  + email: String
+}
+
+' 2. ViewModels
+class AuthViewModel {
+  + userSession: User
+  + currentUser: User
+  --
+  + signIn(email:password:)
+  + signUp(email:password:)
+  + signOut()
+}
+
+class MoodEntryViewModel {
+  + currentEntry: MoodEntry
+  + availableMoods: [String:String]
+  --
+  + saveEntry()
+  + validate()
+}
+
+' 3. Services
+class DatabaseService {
+  + shared: DatabaseService
+  - db: Firestore
+  --
+  + saveMoodEntry(_:forUserID:)
+  + fetchMoodEntries(forUserID:)
+  + clearAllData(forUserID:)
+}
+
+class ExportService {
+  + exportEntries(_:format:)
+  + generateCSV(_:)
+}
+
+' 4. View Hierarchy
+abstract class BaseView {
+  # isLoading: Bool
+  # errorMessage: String
+  --
+  + loadData()
+  + handleError(_:)
+  # refreshUI()
+}
+
+class MoodEntryView {
+  + selectedMood: String
+  + selectedSubMood: String
+  + notes: String
+  --
+  + showDateTimePicker()
+  + saveMoodEntry()
+}
+
+class AnalyticsView {
+  + entries: [MoodEntry]
+  + selectedTimeRange: TimeRange
+  --
+  + applyFilters()
+  + exportData()
+}
+
+class SettingsView {
+  + dailyReminderEnabled: Bool
+  + selectedTheme: String
+  --
+  + clearAllData()
+  + updateReminderTime()
+}
+
+' 5. Analytics Components
+class MoodCalendarView {
+  + selectedDate: Date
+  + calendarDays: [Date?]
+  --
+  + changeMonth(_:)
+  + getMoodsForDate(_:)
+}
+
+class MoodChartView {
+  + timeRange: TimeRange
+  + smoothLine: Bool
+  --
+  + updateTrendData()
+}
+
+class MoodStatisticsView {
+  + mostCommonMood: String
+  + averageScore: Double
+  --
+  + calculateStats()
+}
+
+' 6. Inheritance Relationships
+BaseView <|-- MoodEntryView
+BaseView <|-- AnalyticsView
+BaseView <|-- SettingsView
+
+' 7. Composition Relationships
+AnalyticsView o-- MoodCalendarView
+AnalyticsView o-- MoodChartView
+AnalyticsView o-- MoodStatisticsView
+
+MoodChartView *-- SharpTrendLine
+MoodChartView *-- SmoothTrendLine
+
+' 8. Service Relationships
+AuthViewModel --> DatabaseService
+MoodEntryViewModel --> DatabaseService
+SettingsView --> ExportService
+ExportService --> DatabaseService
+
+' 9. Utility Components
+class SharpTrendLine {
+  + moodValues: [(Date, Double)]
+  --
+  + draw(in:)
+}
+
+class SmoothTrendLine {
+  + moodValues: [(Date, Double)]
+  --
+  + draw(in:)
+}
+
+' 10. Enums
+enum TimeRange {
+  + daily
+  + weekly
+  + monthly
+  + yearly
+}
+
+enum MoodType {
+  + Happy
+  + Calm
+  + Neutral
+  + Sad
+  + Angry
+  + Tired
+  + Sick
+}
+
+' Notes and Layout
+note top of DatabaseService: Firestore backend
+note right of MoodEntry: Firestore document mapping
+note left of BaseView: Base class for all views
+
+hide empty members
+skinparam linetype ortho
+@enduml
+

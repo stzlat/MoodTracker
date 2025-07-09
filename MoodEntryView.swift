@@ -35,11 +35,9 @@ struct MoodEntryView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                // 1. 设置背景颜色
                 getBackgroundColor()
                     .ignoresSafeArea(.all)
                 
-                // 2. 表单内容
                 Form {
                     // Section for current/previous mood toggle
                     Section(header: Text("Is this your current mood?")) {
@@ -85,8 +83,8 @@ struct MoodEntryView: View {
                             .frame(height: 100)
                     }
                 }
-                .scrollContentBackground(.hidden) // 隐藏默认的表单背景
-                .background(Color.clear) // 使表单背景透明，以显示我们的ZStack背景
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
             }
             .navigationTitle("Log Mood")
             .navigationBarTitleDisplayMode(.inline)
@@ -104,30 +102,27 @@ struct MoodEntryView: View {
                     }
                 }
             }
-            // ✅✅✅ 关键修复：强制这个NavigationView及其所有子视图遵循我们选择的主题 ✅✅✅
             .preferredColorScheme(getColorScheme())
         }
     }
     
     // MARK: - Functions
     
-    // ✅ 关键辅助函数1：根据主题选择，返回对应的颜色模式
     private func getColorScheme() -> ColorScheme? {
         switch selectedTheme {
         case "Dark":
-            return .dark // 深色模式
+            return .dark
         default:
-            return nil // 其他主题（如Green）使用系统默认模式
+            return nil
         }
     }
     
-    // ✅ 关键辅助函数2：根据主题选择，返回对应的背景色
     private func getBackgroundColor() -> Color {
         switch selectedTheme {
         case "Dark":
-            return Color.black // 深色主题用纯黑背景
+            return Color.black
         default:
-            return Color.adaptiveGreenBackground // 默认和绿色主题用我们自定义的绿色背景
+            return Color.adaptiveGreenBackground 
         }
     }
     
