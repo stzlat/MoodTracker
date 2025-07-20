@@ -1,5 +1,4 @@
 //  File: HomeView.swift
-//
 
 import SwiftUI
 
@@ -85,17 +84,17 @@ struct HomeView: View {
                 }
                 .padding()
                 //.background(Color.gray.opacity(0.1))
-                .background(
-                    selectedTheme == "Dark" ? Color.black :
-                    selectedTheme == "Green" ? Color.adaptiveGreenBackground :
-                    Color(.systemBackground)
-                )
                 .cornerRadius(10)
                 .padding(.horizontal)
 
                 Spacer()
             }
             .navigationTitle("Moodiary Home")
+            .background(
+                selectedTheme == "Dark" ? Color.black :
+                selectedTheme == "Green" ? Color.adaptiveGreenBackground :
+                Color(.systemBackground)
+            )
             .onAppear {
                 // Load entries when the view appears
                 loadMoodEntries()

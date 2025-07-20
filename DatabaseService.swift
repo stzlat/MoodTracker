@@ -1,5 +1,4 @@
 // File: DatabaseService.swift
-//
 
 import Foundation
 import FirebaseFirestore
@@ -29,7 +28,6 @@ class DatabaseService {
     }
     
     // Fetch all mood entries for a specific user
-    // DatabaseService.swift
 
     func fetchMoodEntries(forUserID userID: String) async throws -> [MoodEntry] {
         let snapshot = try await moodEntriesCollection
@@ -85,9 +83,4 @@ class DatabaseService {
             print("DEBUG: Error clearing data: \(error)")
         }
     }
-}//
-//  DatabaseService.swift
-//  MoodTracker
-//
-//
-
+}

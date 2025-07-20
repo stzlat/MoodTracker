@@ -1,5 +1,4 @@
 //  File: ContentView.swift
-// This is tab view 
 
 import SwiftUI
 

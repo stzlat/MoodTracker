@@ -1,5 +1,4 @@
 // File: RegistrationView.swift
-//
 
 import SwiftUI
 
@@ -64,9 +63,4 @@ struct RegistrationView: View {
         .padding()
         .navigationTitle("Register")
     }
-}//
-//  RegistrationView.swift
-//  MoodTracker
-//
-//
-
+}

@@ -1,4 +1,5 @@
 // File : AnalyticsPlaceholderView.swift
+
 import SwiftUI
 import Foundation
 
@@ -8,6 +9,7 @@ struct AnalyticsView: View {
     @State private var selectedView: AnalyticsViewType = .calendar
     @State private var selectedTimeRange: TimeRange = .weekly
     @State private var smoothTrendLine: Bool = false
+    @State private var selectedDate = Date() // Changed from selectedMonth to selectedDate for all ranges
     @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var authViewModel: AuthViewModel
     @AppStorage("selectedTheme") private var selectedTheme = "Default"
@@ -70,11 +72,36 @@ struct AnalyticsView: View {
                             .pickerStyle(SegmentedPickerStyle())
                             .padding(.horizontal)
                             
+                            // Add navigation for all time ranges
+                            HStack {
+                                Button(action: { changeDate(-1) }) {
+                                    Image(systemName: "chevron.left")
+                                        .font(.title3)
+                                        .foregroundColor(.accentColor)
+                                }
+                                
+                                Spacer()
+                                
+                                Text(dateRangeString(from: selectedDate))
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.primary)
+                                
+                                Spacer()
+                                
+                                Button(action: { changeDate(1) }) {
+                                    Image(systemName: "chevron.right")
+                                        .font(.title3)
+                                        .foregroundColor(.accentColor)
+                                }
+                            }
+                            .padding(.horizontal)
+                            
                             // Smooth line toggle
                             Toggle("Smooth Trend Line", isOn: $smoothTrendLine)
                                 .padding(.horizontal)
                             
-                            MoodChartView(entries: entries, timeRange: selectedTimeRange, smoothLine: smoothTrendLine)
+                            MoodChartView(entries: entries, timeRange: selectedTimeRange, smoothLine: smoothTrendLine, selectedDate: selectedDate)
                         }
                     }
                 }
@@ -96,6 +123,64 @@ struct AnalyticsView: View {
             return adaptiveGreenBackground
         default:
             return Color(.systemBackground)
+        }
+    }
+    
+    private func changeDate(_ value: Int) {
+        let calendar = Calendar.current
+        let component: Calendar.Component
+        
+        switch selectedTimeRange {
+        case .daily:
+            component = .day
+        case .weekly:
+            component = .weekOfYear
+        case .monthly:
+            component = .month
+        case .yearly:
+            component = .year
+        }
+        
+        if let newDate = calendar.date(byAdding: component, value: value, to: selectedDate) {
+            selectedDate = newDate
+        }
+    }
+    
+    private func dateRangeString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        let calendar = Calendar.current
+        
+        switch selectedTimeRange {
+        case .daily:
+            formatter.dateFormat = "MMMM d, yyyy"
+            return formatter.string(from: date)
+        case .weekly:
+            let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: date)?.start ?? date
+            let endOfWeek = calendar.dateInterval(of: .weekOfYear, for: date)?.end ?? date
+            formatter.dateFormat = "MMM d"
+            let startString = formatter.string(from: startOfWeek)
+            let endString = formatter.string(from: endOfWeek)
+            
+            // If same month, show "Jan 1 - 7, 2024"
+            let startMonth = calendar.component(.month, from: startOfWeek)
+            let endMonth = calendar.component(.month, from: endOfWeek)
+            
+            if startMonth == endMonth {
+                let dayFormatter = DateFormatter()
+                dayFormatter.dateFormat = "d"
+                let yearFormatter = DateFormatter()
+                yearFormatter.dateFormat = "yyyy"
+                return "\(startString) - \(dayFormatter.string(from: endOfWeek)), \(yearFormatter.string(from: endOfWeek))"
+            } else {
+                formatter.dateFormat = "MMM d, yyyy"
+                return "\(formatter.string(from: startOfWeek)) - \(formatter.string(from: endOfWeek))"
+            }
+        case .monthly:
+            formatter.dateFormat = "MMMM yyyy"
+            return formatter.string(from: date)
+        case .yearly:
+            formatter.dateFormat = "yyyy"
+            return formatter.string(from: date)
         }
     }
     
@@ -346,6 +431,7 @@ struct MoodChartView: View {
     let entries: [MoodEntry]
     let timeRange: AnalyticsView.TimeRange
     let smoothLine: Bool
+    let selectedDate: Date // Changed from selectedMonth to selectedDate
     @Environment(\.colorScheme) var colorScheme
     
     // Adaptive green background
@@ -373,20 +459,22 @@ struct MoodChartView: View {
     
     private var filteredEntries: [MoodEntry] {
         let calendar = Calendar.current
-        let now = Date()
         
         switch timeRange {
         case .daily:
-            return entries.filter { calendar.isDate($0.date, inSameDayAs: now) }
+            return entries.filter { calendar.isDate($0.date, inSameDayAs: selectedDate) }
         case .weekly:
-            let weekAgo = calendar.date(byAdding: .weekOfYear, value: -1, to: now) ?? now
-            return entries.filter { $0.date >= weekAgo }
+            // Get the week interval for the selected date
+            guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: selectedDate) else {
+                return []
+            }
+            return entries.filter {
+                $0.date >= weekInterval.start && $0.date < weekInterval.end
+            }
         case .monthly:
-            let monthAgo = calendar.date(byAdding: .month, value: -1, to: now) ?? now
-            return entries.filter { $0.date >= monthAgo }
+            return entries.filter { calendar.isDate($0.date, equalTo: selectedDate, toGranularity: .month) }
         case .yearly:
-            let yearAgo = calendar.date(byAdding: .year, value: -1, to: now) ?? now
-            return entries.filter { $0.date >= yearAgo }
+            return entries.filter { calendar.isDate($0.date, equalTo: selectedDate, toGranularity: .year) }
         }
     }
 }

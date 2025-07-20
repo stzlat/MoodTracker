@@ -1,5 +1,4 @@
 // File: LoginView.swift
-//
 
 import SwiftUI
 
@@ -54,9 +53,4 @@ struct LoginView: View {
             .navigationTitle("Login")
         }
     }
-}//
-//  LoginView.swift
-//  MoodTracker
-//
-//
-
+}

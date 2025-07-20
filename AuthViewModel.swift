@@ -1,5 +1,4 @@
 // File: AuthViewModel.swift
-//
 
 import Foundation
 import FirebaseAuth
@@ -17,8 +16,7 @@ class AuthViewModel: ObservableObject {
         // Listen for authentication state changes
         Auth.auth().addStateDidChangeListener { [weak self] _, user in
             self?.userSession = user
-            // Here you would typically fetch your user profile from Firestore
-            // For now, we just update the session
+            // fetch user profile from Firestore
         }
     }
     
@@ -56,9 +54,5 @@ class AuthViewModel: ObservableObject {
             print("DEBUG: Failed to sign out with error: \(error.localizedDescription)")
         }
     }
-}//
-//  AuthViewModel.swift
-//  MoodTracker
-//
-//
+}
 

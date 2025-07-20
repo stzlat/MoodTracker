@@ -1,5 +1,4 @@
 //  MoodEntry.swift
-//
 
 import Foundation
 import FirebaseFirestore

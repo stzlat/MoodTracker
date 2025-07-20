@@ -1,4 +1,5 @@
 // File: SettingsView.swift
+
 import SwiftUI
 
 struct SettingsView: View {
@@ -234,10 +235,6 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Helper Views (Help, Contact, etc.)
-// These views do not need changes unless they also handle user-specific data.
-// We only need to modify ExportDataView.
-
 // Help & FAQ Sheet
 struct HelpView: View {
     // ... (This view's code remains unchanged) ...
@@ -246,7 +243,6 @@ struct HelpView: View {
     let faqItems = [
         ("How do I add a mood entry?", "Tap the Home tab and select your mood from the available options. You can also add notes to describe your feelings in more detail."),
         ("Can I edit past entries?", "Currently, you can view past entries in the Analytics section. Editing functionality will be available in future updates."),
-        ("How is my data stored?", "All your mood data is stored locally on your device and is not shared with anyone. Your privacy is our priority."),
         ("What do the analytics show?", "The Analytics section shows your mood patterns over time, including frequency charts and trends to help you understand your emotional patterns."),
         ("Can I export my data?", "Yes! Go to Settings > Export Data to save your mood tracking data in CSV format."),
         ("How do reminders work?", "Enable daily reminders in Settings to get notifications at your chosen time to track your mood consistently.")

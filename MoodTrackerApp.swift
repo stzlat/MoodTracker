@@ -1,5 +1,4 @@
 //  File: MoodTrackerApp.swift
-//
 
 import SwiftUI
 import FirebaseCore // Import FirebaseCore
