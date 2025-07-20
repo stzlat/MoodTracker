@@ -28,7 +28,16 @@ To protect user data, set up Firebase Firestore rules so users only access their
 -Access mood logging, analytics (calendar and charts), and settings (reminders, themes, export data).
 
 
-##Version 1.2 
+## Version 1.2 
+<img width="682" height="690" alt="image" src="https://github.com/user-attachments/assets/3be040e9-8cd3-48ad-82aa-4af75cb496ec" />
+
+<img width="771" height="544" alt="image" src="https://github.com/user-attachments/assets/a1bbb7b5-fe10-4a78-9a6c-5bd59579e4f4" />
+<img width="520" height="525" alt="image" src="https://github.com/user-attachments/assets/b0a46a19-e167-48a8-819c-bea45b7ed74c" />
+
+<img width="1289" height="665" alt="image" src="https://github.com/user-attachments/assets/c68d2aa1-8d74-45ac-89f2-ef5b703e8f55" />
+<img width="1130" height="203" alt="image" src="https://github.com/user-attachments/assets/a8b2a19d-0c70-4d07-bbbf-398d712f03f3" />
+<img width="605" height="623" alt="image" src="https://github.com/user-attachments/assets/f2e4368b-9510-4797-9b4b-b6b14f9ac231" />
+
 
 ## Version 1.1  
 <img width="800" alt="Version 1.1 Full App" src="https://github.com/user-attachments/assets/bd1ba84e-8de4-4e96-8983-15a288afd829" />  
